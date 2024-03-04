@@ -15,3 +15,8 @@ direction :: proc(vec: rl.Vector2) -> rl.Vector2 {
     }
     return vec / mag
 }
+
+AABB :: struct {
+    min: rl.Vector2,
+    max: rl.Vector2,
+}
