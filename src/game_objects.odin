@@ -5,6 +5,7 @@ import "core:math"
 import "core:fmt"
 import "core:mem"
 import "core:math/linalg"
+import "core:math/rand"
 
 GameObject :: struct {
     size: rl.Vector2,
@@ -55,14 +56,16 @@ get_aabb :: proc(go : ^GameObject) -> AABB {
 do_emit_particles :: proc(go : ^GameObject) {
     using go
     particle := make_particle()
-    particle.color = color
-    particle.position = position
-    particle.size = {10, 10}
+    particle.color = color //* rand.float32_range(0.6, 1, &random)
+    particle.position = position + {rand.float32_range(-10, 10, &random), rand.float32_range(-10, 10, &random)}
+    particle.size = particleStartSize + {rand.float32_range(-3, 3, &random), rand.float32_range(-3, 3, &random)}
     // do some randomness in movement and accel
-    particle.velocity = 0.2 * go.velocity
+    particle.velocity = rand.float32_range(0.2, 0.5, &random) * go.velocity + 
+        rand.float32_range(0.1, 0.2, &random) * go.velocity.yx
 
+    particle.lifetime = 1
     // particle.acceleration = 100 * {0, 0}
-    particle.life_remaining = 0.4
+    particle.life_remaining = particle.lifetime
 }
 
 do_movement_player :: proc(player : ^Player, delta: f32) {
@@ -81,7 +84,7 @@ do_movement_player :: proc(player : ^Player, delta: f32) {
 
     player.position += player.velocity * delta
 
-    if rl.GetTime() - player.particle_time > 0.3 {
+    if rl.GetTime() - player.particle_time > 0.1 {
         player.particle_time = rl.GetTime()
         do_emit_particles(player)
     }
@@ -91,7 +94,7 @@ do_movement_ball :: proc(ball : ^Ball, delta: f32) {
     ball.velocity += ball.acceleration * delta
     ball.position += ball.velocity * delta
 
-    if rl.GetTime() - ball.particle_time > 0.3 {
+    if rl.GetTime() - ball.particle_time > 0.1 {
         ball.particle_time = rl.GetTime()
         do_emit_particles(ball)
     }
@@ -166,6 +169,8 @@ do_draw :: proc(go: ^GameObject) {
     )
 }
 
+particleStartSize :: rl.Vector2{10, 10}
+
 particles : [4096]Particle
 particle_index : int
 
@@ -175,17 +180,24 @@ make_particle :: proc() -> ^Particle {
     return particle
 }
 
+do_draw_particles :: proc() {
+    for &p in particles {
+        if p.life_remaining > 0 {
+            do_draw(&p)
+        }
+    }
+}
+
 do_update_particles :: proc(delta: f32) {
     for &p in particles {
-        p.life_remaining -= delta
-        life_ratio := math.remap(p.life_remaining, 0, p.lifetime, 0, 1)
-        
-        // p.color.r = (u8)(255.0 * math.lerp(0.0, f32(p.color.r)/255.0, life_ratio))
-        // p.color.g = (u8)(255.0 * math.lerp(0.0, f32(p.color.g)/255.0, life_ratio))
-        // p.color.b = (u8)(255.0 * math.lerp(0.0, f32(p.color.b)/255.0, life_ratio))
-        // p.color.a = (u8)(255.0 * math.lerp(0.0, f32(p.color.a)/255.0, life_ratio))
-
-        p.velocity += p.acceleration * delta
-        p.position += p.velocity * delta
+        if p.life_remaining > 0 {
+            p.life_remaining -= delta
+            life_ratio := math.remap(p.life_remaining, 0, p.lifetime, 0, 1)
+    
+            p.color.a = (u8)(255 * life_ratio)
+            p.size = particleStartSize * life_ratio
+            p.velocity += p.acceleration * delta
+            p.position += p.velocity * delta
+        }
     }
 }

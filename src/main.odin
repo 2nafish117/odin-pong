@@ -78,10 +78,7 @@ draw :: proc() {
     do_draw(&player2)
     do_draw(&ball)
 
-    for &p in particles {
-        // fmt.print("yello\n")
-        do_draw(&p)
-    }
+    do_draw_particles()
 
     defaultOpacity :: 64
     defaultSize :: 50
@@ -147,7 +144,7 @@ scoreAnimDuration :: 0.4
 // game objects
 player1: Player = {size={125, 15}, color={255, 0, 0, 255}}
 player2: Player = {size={125, 15}, color={0, 0, 255, 255}}
-ball : Ball = {size={10, 10}, color={255, 255, 255, 255}}
+ball : Ball = {size={15, 15}, color={255, 255, 255, 255}}
 arena : Arena = {
     aabb={{0, 0}, {windowWidth, windowHeight}},
 }
