@@ -4,6 +4,7 @@ import rl "vendor:raylib"
 import "core:fmt"
 import "core:math"
 import "core:math/rand"
+import "core:/math/linalg"
 import "core:strings"
 import "core:/mem/virtual"
 
@@ -169,7 +170,7 @@ round_start :: proc() {
         rand.float32_uniform(-1, 1, &random),
     }
 
-    ball.velocity = 500 * direction(ball.velocity)
+    ball.velocity = 500 * linalg.normalize0(ball.velocity)
 }
 
 main :: proc() {

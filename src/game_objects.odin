@@ -4,6 +4,7 @@ import rl "vendor:raylib"
 import "core:math"
 import "core:fmt"
 import "core:mem"
+import "core:math/linalg"
 
 GameObject :: struct {
     size: rl.Vector2,
@@ -37,6 +38,11 @@ Arena :: struct {
     aabb: AABB 
 }
 
+AABB :: struct {
+    min: rl.Vector2,
+    max: rl.Vector2,
+}
+
 get_aabb :: proc(go : ^GameObject) -> AABB {
     using go
 
@@ -54,6 +60,7 @@ do_emit_particles :: proc(go : ^GameObject) {
     particle.size = {10, 10}
     // do some randomness in movement and accel
     particle.velocity = 0.2 * go.velocity
+
     // particle.acceleration = 100 * {0, 0}
     particle.life_remaining = 0.4
 }
@@ -69,7 +76,7 @@ do_movement_player :: proc(player : ^Player, delta: f32) {
     player.velocity += player.acceleration * delta
 
     // damp player velocity
-    damping := direction(-player.velocity) * magnitude(player.velocity) * playerDampMagnitude
+    damping := linalg.normalize0(-player.velocity) * linalg.abs(player.velocity) * playerDampMagnitude
     player.velocity += damping * delta
 
     player.position += player.velocity * delta
@@ -105,7 +112,6 @@ do_collision_ball_arena :: proc(ball : ^Ball, arena : ^Arena, delta : f32) {
         ball.velocity.y *= -1
         ball_aabb.min.y = 0
 
-        // fmt.print("yow hello !!!!!!!!!!!!!!!!")
         player2.points += 1
         player2.score_time = rl.GetTime()
     }
