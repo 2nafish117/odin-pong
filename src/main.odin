@@ -31,33 +31,78 @@ input :: proc() {
         }
     }
 
-    if rl.IsKeyPressed(rl.KeyboardKey.P) {
+    if rl.IsKeyPressed(rl.KeyboardKey.P) && win_player == 0 {
         paused = !paused
+    }
+    
+    if rl.IsKeyPressed(rl.KeyboardKey.R) && win_player != 0 {
+        // need to restart stuff
+        round_start()
     }
 }
 
 tick :: proc(delta: f32) {
-    do_movement_player(&player1, delta)
-    do_movement_player(&player2, delta)
-    do_movement_ball(&ball, delta)
+    if !paused {
+        do_movement_player(&player1, delta)
+        do_movement_player(&player2, delta)
+        do_movement_ball(&ball, delta)
+        
+        do_collision_player_arena(&player1, &arena, delta)
+        do_collision_player_arena(&player2, &arena, delta)
+        
+        do_collision_player_ball(&player1, &ball, delta)
+        do_collision_player_ball(&player2, &ball, delta)
+        
+        do_collision_ball_arena(&ball, &arena, delta)
     
-    do_collision_player_arena(&player1, &arena, delta)
-    do_collision_player_arena(&player2, &arena, delta)
+        do_update_particles(&gameplay_particle_system, delta)
     
-    do_collision_player_ball(&player1, &ball, delta)
-    do_collision_player_ball(&player2, &ball, delta)
-    
-    do_collision_ball_arena(&ball, &arena, delta)
-    
-    do_update_particles(delta)
+        if player1.points >= pointsToWin {
+            // player 1 wins
+            paused = true
+            win_player = 1
+        }
+        if player2.points >= pointsToWin {
+            // player 2 wins
+            paused = true
+            win_player = 2
+        }
+    } else if win_player != 0{
+        if rl.GetTime() - win_particle_time > 0.01 {
+            win_particle_time = rl.GetTime()
 
-    if player1.points >= pointsToWin {
-        // player 1 wins
-        paused = true
-    }
-    if player2.points >= pointsToWin {
-        // player 2 wins
-        paused = true
+            make_win_particle :: proc(position: rl.Vector2) {
+                particle := make_particle(&win_particle_system)
+                particle.color = {
+                    u8(255*rand.float32_range(0, 1)), 
+                    u8(255*rand.float32_range(0, 1)), 
+                    u8(255*rand.float32_range(0, 1)), 
+                    u8(255*rand.float32_range(0, 1)),
+                }
+                
+                particle.position = position
+                particle.size = win_particle_system.particle_start_size + 
+                    {rand.float32_range(-10, 10, &random), rand.float32_range(-10, 10, &random)}
+
+                // do some randomness in movement and accel
+                particle.velocity = {rand.float32_range(-200, 200, &random), rand.float32_range(-900, -500, &random)}
+            
+                particle.acceleration = {-10, 800}
+                particle.life_remaining = win_particle_system.lifetime * rand.float32_range(0.9, 1.2, &random)
+            }
+
+            make_win_particle({
+                windowWidth * 0.2 + rand.float32_range(-10, 10, &random), 
+                windowHeight * 0.8 + rand.float32_range(-10, 10, &random),
+            })
+
+            make_win_particle({
+                windowWidth * 0.8 + rand.float32_range(-10, 10, &random), 
+                windowHeight * 0.8 + rand.float32_range(-10, 10, &random),
+            })
+        }
+
+        do_update_particles(&win_particle_system, delta)
     }
 }
 
@@ -73,12 +118,13 @@ format_score :: proc(score: int, builder: ^strings.Builder) -> string{
     return strings.to_string(builder^)
 }
 
-draw :: proc() {
+draw :: proc(delta: f32) {
     do_draw(&player1)
     do_draw(&player2)
     do_draw(&ball)
 
-    do_draw_particles()
+    do_draw_particles(&gameplay_particle_system)
+    do_draw_particles(&win_particle_system)
 
     defaultOpacity :: 64
     defaultSize :: 50
@@ -133,6 +179,30 @@ draw :: proc() {
         size2, 
         {0, 0, 255, opacity2},
     )
+
+    if paused {
+        if win_player == 1 {
+            rl.DrawRectangle(0, 0, windowWidth, windowHeight, {255, 24, 24, 24})
+            do_draw_particles(&win_particle_system)
+            rl.DrawText(
+                strings.unsafe_string_to_cstring("Ey yo, Red wins"), 
+                windowWidth * 0.5 - 250, 
+                windowHeight * 0.5 - 150, 
+                70, 
+                {255, 0, 0, 255},
+            )
+        } else if win_player == 2 {
+            rl.DrawRectangle(0, 0, windowWidth, windowHeight, {24, 24, 255, 24})
+            do_draw_particles(&win_particle_system)
+            rl.DrawText(
+                strings.unsafe_string_to_cstring("Ey yo, Blue wins"), 
+                windowWidth * 0.5 - 250, 
+                windowHeight * 0.5 - 150, 
+                70, 
+                {0, 0, 255, 255},
+            )
+        }
+    }
 }
 
 // constants
@@ -141,7 +211,7 @@ windowHeight :: 720
 
 scoreAnimDuration :: 0.4
 
-pointsToWin :: 23
+pointsToWin :: 11
 
 // game objects
 player1: Player = {size={125, 15}, color={255, 0, 0, 255}}
@@ -150,19 +220,31 @@ ball : Ball = {size={15, 15}, color={255, 255, 255, 255}}
 arena : Arena = {
     aabb={{0, 0}, {windowWidth, windowHeight}},
 }
+gameplay_particle_system: ParticleSystem = {
+    lifetime=1,
+    particle_start_size={10, 10},
+}
+win_particle_system: ParticleSystem = {
+    lifetime=4,
+    particle_start_size={20, 20},
+}
 
 // globals
 random : rand.Rand
 player1_score_builder : strings.Builder
 player2_score_builder : strings.Builder
 paused := false
+win_player: int = 0
+win_particle_time: f64
 
 round_start :: proc() {
     player1.position = {windowWidth/2, windowHeight * 0.1}
     player2.position = {windowWidth/2, windowHeight * 0.9}
     player1.score_time = -100
+    player1.points = 0
     player2.score_time = -100
-    
+    player2.points = 0
+
     ball.position = {windowWidth/2, windowHeight/2}
     
     ball.velocity = {
@@ -171,6 +253,18 @@ round_start :: proc() {
     }
 
     ball.velocity = 500 * linalg.normalize0(ball.velocity)
+
+    win_player = 0
+    paused = false
+
+    gameplay_particle_system = {
+        lifetime=1,
+        particle_start_size={10, 10},
+    }
+    win_particle_system = {
+        lifetime=4,
+        particle_start_size={20, 20},
+    }
 }
 
 main :: proc() {
@@ -185,14 +279,14 @@ main :: proc() {
     round_start()
 
     for !rl.WindowShouldClose() {
+        delta := rl.GetFrameTime()
+
         input()
-        if !paused {
-            tick(rl.GetFrameTime())
-        }
+        tick(delta)
 
         rl.ClearBackground({0, 0, 0, 255})
         rl.BeginDrawing()
-        draw()
+        draw(delta)
         rl.EndDrawing()
     }
 

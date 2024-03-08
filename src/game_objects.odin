@@ -31,7 +31,6 @@ Ball :: struct {
 
 Particle :: struct {
     using go : GameObject,
-    lifetime : f32,
     life_remaining: f32,
 }
 
@@ -44,6 +43,13 @@ AABB :: struct {
     max: rl.Vector2,
 }
 
+ParticleSystem :: struct {
+    particles : [512]Particle,
+    particle_start_size : rl.Vector2,
+    particle_index : int,
+    lifetime: f32,
+}
+
 get_aabb :: proc(go : ^GameObject) -> AABB {
     using go
 
@@ -53,19 +59,17 @@ get_aabb :: proc(go : ^GameObject) -> AABB {
     }
 }
 
-do_emit_particles :: proc(go : ^GameObject) {
-    using go
-    particle := make_particle()
-    particle.color = color //* rand.float32_range(0.6, 1, &random)
-    particle.position = position + {rand.float32_range(-10, 10, &random), rand.float32_range(-10, 10, &random)}
-    particle.size = particleStartSize + {rand.float32_range(-3, 3, &random), rand.float32_range(-3, 3, &random)}
+do_emit_particles :: proc(system : ^ParticleSystem, go : ^GameObject) {
+    particle := make_particle(system)
+    particle.color = {go.color.r, go.color.g, go.color.b, u8(f32(go.color.a) * 0.6)} //* rand.float32_range(0.6, 1, &random)
+    particle.position = go.position + {rand.float32_range(-10, 10, &random), rand.float32_range(-10, 10, &random)}
+    particle.size = system.particle_start_size + {rand.float32_range(-3, 3, &random), rand.float32_range(-3, 3, &random)}
     // do some randomness in movement and accel
     particle.velocity = rand.float32_range(0.2, 0.5, &random) * go.velocity + 
         rand.float32_range(0.1, 0.2, &random) * go.velocity.yx
 
-    particle.lifetime = 1
-    // particle.acceleration = 100 * {0, 0}
-    particle.life_remaining = particle.lifetime
+    particle.acceleration = 300 * {rand.float32_range(-1, 1, &random), rand.float32_range(-1, 1, &random)}
+    particle.life_remaining = system.lifetime * rand.float32_range(0.9, 1.2, &random)
 }
 
 do_movement_player :: proc(player : ^Player, delta: f32) {
@@ -86,7 +90,7 @@ do_movement_player :: proc(player : ^Player, delta: f32) {
 
     if rl.GetTime() - player.particle_time > 0.1 {
         player.particle_time = rl.GetTime()
-        do_emit_particles(player)
+        do_emit_particles(&gameplay_particle_system, player)
     }
 }
 
@@ -94,9 +98,9 @@ do_movement_ball :: proc(ball : ^Ball, delta: f32) {
     ball.velocity += ball.acceleration * delta
     ball.position += ball.velocity * delta
 
-    if rl.GetTime() - ball.particle_time > 0.1 {
+    if rl.GetTime() - ball.particle_time > 0.05 {
         ball.particle_time = rl.GetTime()
-        do_emit_particles(ball)
+        do_emit_particles(&gameplay_particle_system, ball)
     }
 }
 
@@ -169,33 +173,28 @@ do_draw :: proc(go: ^GameObject) {
     )
 }
 
-particleStartSize :: rl.Vector2{10, 10}
-
-particles : [4096]Particle
-particle_index : int
-
-make_particle :: proc() -> ^Particle {
-    particle := &particles[particle_index]
-    particle_index = (particle_index + 1) % len(particles)
+make_particle :: proc(system: ^ParticleSystem) -> ^Particle {
+    particle := &system.particles[system.particle_index]
+    system.particle_index = (system.particle_index + 1) % len(system.particles)
     return particle
 }
 
-do_draw_particles :: proc() {
-    for &p in particles {
+do_draw_particles :: proc(system: ^ParticleSystem) {
+    for &p in system.particles {
         if p.life_remaining > 0 {
             do_draw(&p)
         }
     }
 }
 
-do_update_particles :: proc(delta: f32) {
-    for &p in particles {
+do_update_particles :: proc(system: ^ParticleSystem, delta: f32) {
+    for &p in system.particles {
         if p.life_remaining > 0 {
             p.life_remaining -= delta
-            life_ratio := math.remap(p.life_remaining, 0, p.lifetime, 0, 1)
+            life_ratio := math.remap(p.life_remaining, 0, system.lifetime, 0, 1)
     
             p.color.a = (u8)(255 * life_ratio)
-            p.size = particleStartSize * life_ratio
+            p.size = system.particle_start_size * life_ratio
             p.velocity += p.acceleration * delta
             p.position += p.velocity * delta
         }
