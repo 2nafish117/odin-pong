@@ -8,10 +8,10 @@ Bruh, double click exe
 
 ## controls
 
-A, D keys- red movement
-<=, => arrow keys - blue movement
-P - pauses the game
-R - resets the game after someone wins
+A, D keys- red movement \
+<=, => arrow keys - blue movement \
+P - pauses the game \
+R - resets the game after someone wins \
 
 ## building
 
