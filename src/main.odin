@@ -12,36 +12,27 @@ input :: proc() {
     // player 1 input
     player1.input = {0, 0}
     {
-        // if rl.IsKeyDown(rl.KeyboardKey.W) {
-        //     player1.input.y += 1
-        // }
         if rl.IsKeyDown(rl.KeyboardKey.A) {
             player1.input.x -= 1
         }
-        // if rl.IsKeyDown(rl.KeyboardKey.S) {
-        //     player1.input.y -= 1
-        // }
         if rl.IsKeyDown(rl.KeyboardKey.D) {
             player1.input.x += 1
         }
     }
-    // fmt.print(player1)
 
     // player 2 input
     player2.input = {0, 0}
     {
-        // if rl.IsKeyDown(rl.KeyboardKey.UP) {
-        //     player2.input.y += 1
-        // }
         if rl.IsKeyDown(rl.KeyboardKey.LEFT) {
             player2.input.x -= 1
         }
-        // if rl.IsKeyDown(rl.KeyboardKey.DOWN) {
-        //     player2.input.y -= 1
-        // }
         if rl.IsKeyDown(rl.KeyboardKey.RIGHT) {
             player2.input.x += 1
         }
+    }
+
+    if rl.IsKeyPressed(rl.KeyboardKey.P) {
+        paused = !paused
     }
 }
 
@@ -59,6 +50,15 @@ tick :: proc(delta: f32) {
     do_collision_ball_arena(&ball, &arena, delta)
     
     do_update_particles(delta)
+
+    if player1.points >= pointsToWin {
+        // player 1 wins
+        paused = true
+    }
+    if player2.points >= pointsToWin {
+        // player 2 wins
+        paused = true
+    }
 }
 
 format_score :: proc(score: int, builder: ^strings.Builder) -> string{
@@ -141,6 +141,8 @@ windowHeight :: 720
 
 scoreAnimDuration :: 0.4
 
+pointsToWin :: 23
+
 // game objects
 player1: Player = {size={125, 15}, color={255, 0, 0, 255}}
 player2: Player = {size={125, 15}, color={0, 0, 255, 255}}
@@ -153,6 +155,7 @@ arena : Arena = {
 random : rand.Rand
 player1_score_builder : strings.Builder
 player2_score_builder : strings.Builder
+paused := false
 
 round_start :: proc() {
     player1.position = {windowWidth/2, windowHeight * 0.1}
@@ -183,8 +186,9 @@ main :: proc() {
 
     for !rl.WindowShouldClose() {
         input()
-
-        tick(rl.GetFrameTime())
+        if !paused {
+            tick(rl.GetFrameTime())
+        }
 
         rl.ClearBackground({0, 0, 0, 255})
         rl.BeginDrawing()
