@@ -2,9 +2,11 @@
 
 First time using the odin programming language, so I decided to make a pong game in it.
 
+![The game](media/pong.gif)
+
 ## running
 
-Bruh, double click exe
+dowbnload the latest release and run it.
 
 ## controls
 
